@@ -46,4 +46,4 @@ python main.py
 
 * `.env` is required and not included in the repo
 * Make sure PostgreSQL is running
-* ChromaDB will be created automatically
+
