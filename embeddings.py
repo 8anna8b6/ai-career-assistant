@@ -3,7 +3,8 @@ from typing import List, Union
 from sentence_transformers import SentenceTransformer
 from config import LOCAL_EMBEDDING_MODEL
 
-_model = None  # The AI model (loaded once)
+_model = None  # loaded once
+
 
 def _init_model():
     global _model
@@ -12,18 +13,16 @@ def _init_model():
         print(f"[Embeddings] Using local model: {LOCAL_EMBEDDING_MODEL}")
 
 
-
 def get_embeddings(texts: Union[str, List[str]]) -> List[List[float]]:
     _init_model()
 
     if not texts:
         return []
 
-    # Ensure list input
     if isinstance(texts, str):
         texts = [texts]
 
-    # Flatten nested lists 
+    # flatten
     flattened = []
     for t in texts:
         if isinstance(t, list):
@@ -31,20 +30,19 @@ def get_embeddings(texts: Union[str, List[str]]) -> List[List[float]]:
         else:
             flattened.append(t)
 
-    # Clean + normalize
-    cleaned_texts = []
+    # clean
+    cleaned = []
     for t in flattened:
         if not isinstance(t, str):
             t = str(t)
-
         t = t.strip()
-        cleaned_texts.append(t if t else " ")
+        cleaned.append(t if t else " ")
 
-    # Generate embeddings
     vectors = _model.encode(
-        cleaned_texts,
+        cleaned,
         show_progress_bar=False,
-        batch_size=32
+        batch_size=32,
+        normalize_embeddings=True  
     )
 
     return [v.tolist() for v in vectors]

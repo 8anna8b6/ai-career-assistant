@@ -23,12 +23,10 @@ def init_db(conn) -> None:
                 location            TEXT,
                 url                 TEXT,
                 description         TEXT,
-                requirements        TEXT,
-                experience          INTEGER,
                 skills_must         TEXT[],
                 skills_nice         TEXT[],
+                yearsexperience     INTEGER,
                 past_experience     TEXT[],
-                tools_technologies  TEXT[],
                 keyword             TEXT,
                 source              TEXT DEFAULT 'linkedin',
                 posted_at           DATE,
@@ -48,9 +46,10 @@ def insert_jobs(conn, jobs: List[dict]) -> int:
         (
             j["id"], j["title"], j.get("role"), j.get("seniority"),
             j["company"], j["location"], j["url"],
-            j.get("description"), j.get("requirements"), j.get("experience"),
+            j.get("description"),
             j.get("skills_must", []), j.get("skills_nice", []),
-            j.get("past_experience", []), j.get("tools_technologies", []),
+            j.get("yearsexperience"),
+            j.get("past_experience", []),
             j["keyword"], j.get("source", "linkedin"), j.get("posted_at"),
         )
         for j in jobs
@@ -60,8 +59,8 @@ def insert_jobs(conn, jobs: List[dict]) -> int:
         execute_values(cur, """
             INSERT INTO test2 (
                 id, title, role, seniority, company, location, url,
-                description, requirements, experience,
-                skills_must, skills_nice, past_experience, tools_technologies,
+                description,
+                skills_must, skills_nice, yearsexperience, past_experience,
                 keyword, source, posted_at
             )
             VALUES %s
@@ -89,8 +88,8 @@ def fetch_jobs_without_embeddings(conn, chroma_ids: set) -> List[dict]:#used for
     with conn.cursor() as cur:
         cur.execute("""
             SELECT id, title, role, seniority, company, location, url,
-                   description, requirements, experience,
-                   skills_must, skills_nice, past_experience, tools_technologies,
+                   description,
+                   skills_must, skills_nice, yearsexperience, past_experience,
                    keyword, source, posted_at
             FROM test2;
         """)

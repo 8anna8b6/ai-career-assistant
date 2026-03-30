@@ -16,7 +16,7 @@ def extract_with_groq(title: str, description: str) -> dict:
     if not description or description == "N/A":
         return _empty_extraction()
 
-    description = description[:2000]
+    description = description[:5000]
     client      = Groq(api_key=GROQ_API_KEY_EXTRACT)
 
     for attempt in range(3):
@@ -78,22 +78,20 @@ def extract_with_groq(title: str, description: str) -> dict:
 
 def _empty_extraction() -> dict:
     return {
-        "role":               "Other",
-        "seniority":          "Not specified",
-        "description":        None,
-        "requirements":       None,
-        "experience":         None,
-        "skills_must":        [],
-        "skills_nice":        [],
-        "past_experience":    [],
-        "tools_technologies": [],
+        "role":            "Other",
+        "seniority":       "Not specified",
+        "description":     None,
+        "experience":      None,
+        "skills_must":     [],
+        "skills_nice":     [],
+        "past_experience": [],
     }
 
 
 def _validate_extraction(data: dict) -> dict:
     empty        = _empty_extraction()
     result       = {}
-    array_fields = {"skills_must", "skills_nice", "past_experience", "tools_technologies"}
+    array_fields = {"skills_must", "skills_nice", "past_experience"}
     int_fields   = {"experience"}
 
     for key, default in empty.items():
@@ -116,5 +114,20 @@ def _validate_extraction(data: dict) -> dict:
 
         else:
             result[key] = str(val).strip() if val else None
+
+    # Rename experience -> yearsexperience for consistency with DB schema
+    result["yearsexperience"] = result.pop("experience")
+
+    # Python-side seniority correction based on years of experience
+    # Only override non-leadership seniority values
+    leadership_seniority = {"Lead", "Staff", "Principal", "Manager", "Director", "VP"}
+    yrs = result.get("yearsexperience")
+    if yrs is not None and result.get("seniority") not in leadership_seniority:
+        if yrs <= 3:
+            result["seniority"] = "Junior"
+        elif yrs <= 5:
+            result["seniority"] = "Mid"
+        else:
+            result["seniority"] = "Senior"
 
     return result

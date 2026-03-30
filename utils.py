@@ -48,12 +48,11 @@ def build_embedding_text(job: dict) -> str:
         if val and val != "N/A":
             parts.append(str(val))
 
-    for field in ("description", "requirements"):
-        val = job.get(field)
-        if val:
-            parts.append(str(val))
+    val = job.get("description")
+    if val:
+        parts.append(str(val))
 
-    for field in ("skills_must", "skills_nice", "tools_technologies", "past_experience"):
+    for field in ("skills_must", "skills_nice", "past_experience"):
         val = job.get(field)
         if isinstance(val, list) and val:
             parts.append(", ".join(val))
@@ -62,16 +61,13 @@ def build_embedding_text(job: dict) -> str:
 
 
 def build_chroma_metadata(job: dict) -> dict:
-    
-    
     scalar_fields = (
-        "id", "title", "role", "seniority", "company", 
-        "location", "url", "experience", "keyword", "source"
+        "id", "title", "role", "seniority", "company",
+        "location", "url", "yearsexperience", "keyword", "source"
     )
-    
-    
+
     list_fields = (
-        "skills_must", "skills_nice", "past_experience", "tools_technologies"
+        "skills_must", "skills_nice", "past_experience"
     )
 
     meta = {}
@@ -79,15 +75,13 @@ def build_chroma_metadata(job: dict) -> dict:
     for f in scalar_fields:
         val = job.get(f)
         if val is not None:
-            
-            if f == "experience":
+            if f == "yearsexperience":
                 meta[f] = int(val)
             else:
                 meta[f] = str(val)
         else:
-            meta[f] = "" 
+            meta[f] = ""
 
-    
     for f in list_fields:
         val = job.get(f)
         if isinstance(val, list) and val:
@@ -95,7 +89,6 @@ def build_chroma_metadata(job: dict) -> dict:
         else:
             meta[f] = ""
 
-    
     posted = job.get("posted_at")
     meta["posted_at"] = str(posted) if posted else ""
 

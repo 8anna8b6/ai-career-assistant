@@ -61,7 +61,7 @@ def main() -> None:
             time.sleep(2)
 
             posted_str = str(stub["posted_at"]) if stub.get("posted_at") else "unknown"
-            exp_str = f"{extracted['experience']}yr" if extracted.get("experience") else "exp:?"
+            exp_str = f"{extracted['yearsexperience']}yr" if extracted.get("yearsexperience") else "exp:?"
             print(
                 f"    ✓ {stub['title']} | {extracted['role']} | {extracted['seniority']}"
                 f" | {exp_str} | posted: {posted_str}"
@@ -77,12 +77,10 @@ def main() -> None:
                 "role": extracted["role"],
                 "seniority": extracted["seniority"],
                 "description": extracted["description"],
-                "requirements": extracted["requirements"],
-                "experience": extracted["experience"],
                 "skills_must": extracted["skills_must"],
                 "skills_nice": extracted["skills_nice"],
+                "yearsexperience": extracted["yearsexperience"],
                 "past_experience": extracted["past_experience"],
-                "tools_technologies": extracted["tools_technologies"],
                 "posted_at": stub["posted_at"],
                 "keyword": stub["keyword"],
                 "source": "linkedin",
