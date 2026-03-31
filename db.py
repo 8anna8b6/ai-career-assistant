@@ -8,13 +8,13 @@ from config import DB_CONFIG
 def get_connection():
     return psycopg2.connect(**DB_CONFIG)
 
-
+#DROP TABLE IF EXISTS jobs;
 #build the schema
 def init_db(conn) -> None:
     with conn.cursor() as cur:
         cur.execute("""
-            DROP TABLE IF EXISTS test2;
-            CREATE TABLE IF NOT EXISTS test2 (
+           
+            CREATE TABLE IF NOT EXISTS jobs (
                 id                  TEXT PRIMARY KEY UNIQUE,
                 title               TEXT,
                 role                TEXT,
@@ -57,7 +57,7 @@ def insert_jobs(conn, jobs: List[dict]) -> int:
 
     with conn.cursor() as cur:
         execute_values(cur, """
-            INSERT INTO test2 (
+            INSERT INTO jobs (
                 id, title, role, seniority, company, location, url,
                 description,
                 skills_must, skills_nice, yearsexperience, past_experience,
@@ -73,13 +73,13 @@ def insert_jobs(conn, jobs: List[dict]) -> int:
 def count_jobs(conn) -> int:#for debuf delete later
    
     with conn.cursor() as cur:
-        cur.execute("SELECT COUNT(*) FROM test2;")
+        cur.execute("SELECT COUNT(*) FROM jobs;")
         return cur.fetchone()[0]
 
 
 def fetch_all_ids(conn) -> set:#to prevent duplications
     with conn.cursor() as cur:
-        cur.execute("SELECT id FROM test2;")
+        cur.execute("SELECT id FROM jobs;")
         return {row[0] for row in cur.fetchall()}
 
 
@@ -91,7 +91,7 @@ def fetch_jobs_without_embeddings(conn, chroma_ids: set) -> List[dict]:#used for
                    description,
                    skills_must, skills_nice, yearsexperience, past_experience,
                    keyword, source, posted_at
-            FROM test2;
+            FROM jobs;
         """)
         cols = [desc[0] for desc in cur.description]
         rows = cur.fetchall()

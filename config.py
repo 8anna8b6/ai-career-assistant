@@ -26,7 +26,7 @@ CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION")
 
 
 # ───────── Scraper ─────────
-TARGET_JOBS = 20
+TARGET_JOBS = 200
 CHROME_VERSION = 145
 DATE_FILTER = "r2592000" #"r86400" last 24 hours,"r604800"last 7 days,"r2592000" last 30 days ,"r7776000" last 90 days
 
@@ -52,7 +52,7 @@ KEYWORDS = [
 EXTRACTION_PROMPT = """You are a job data extractor. Given a job title and description, return ONLY a valid JSON object. No markdown, no explanation, no extra text.
  
 {
-  "role": "ONE OF: Software Development|Frontend|Backend|Fullstack|AI / ML|Data Scientist|Data Engineer|Data Analyst|BI|DevOps / Cloud|Mobile|QA / Automation|Security|Embedded / Firmware|Database|Network|System Engineer|Solutions Architect|Team Lead|R&D",
+  "role": "ONE OF: Software Development|Frontend|Backend|Fullstack|AI / ML|Data Scientist|Data Engineer|Data Analyst|BI|DevOps / Cloud|Mobile|QA / Automation|Security|Embedded / Firmware|Database|Network|System Engineer|Product Manager|Team Lead|R&D|Solutions Architect",
   "seniority": "ONE OF: Intern|Junior|Mid|Senior|Lead|Staff|Principal|Manager|Director|VP|Not specified",
   "description": "4-5 sentences about daily work, systems, team context, impact",
   "experience": <integer years or null>,
@@ -63,7 +63,7 @@ EXTRACTION_PROMPT = """You are a job data extractor. Given a job title and descr
 }
  
 Rules:
-- role: derive from job TITLE only, not description
+- role: derive from job TITLE only. Map the primary technology/domain in the title to the closest role value. Use "Software Development" for generic engineer/developer titles. Only use "Other" if the title has no engineering/tech signal at all
 - experience: integer years or null. For "X+ years" use X (e.g. "8+ years" -> 8). For a range "X-Y years" use the lower bound X. Never return a value lower than what is written. Search the ENTIRE post for any mention of years of experience
 - seniority: derive PRIMARILY from years of experience using these rules: 0-3 years = Junior, 3-5 years = Mid, 5+ years = Senior. Override with title only for explicit leadership roles: Lead/Staff/Principal/Manager/Director/VP/Senior/Mid/Junior. If no experience is mentioned anywhere AND the title has no seniority signal, use "Not specified"
 - skills_must: scan the ENTIRE job post for required skills. Include every technology, tool, language, framework, platform, database, cloud service, and methodology that a candidate MUST have. Do not limit to a specific section — many posts mix requirements throughout. Exclude only items explicitly labeled Advantage/Preferred/Bonus/Nice to have
@@ -79,7 +79,8 @@ VALID_ROLES = {
     "Software Development", "Frontend", "Backend", "Fullstack", "AI / ML",
     "Data Scientist", "Data Engineer", "Data Analyst", "BI", "DevOps / Cloud",
     "Mobile", "QA / Automation", "Security", "Embedded / Firmware", "Database",
-    "Network", "System Engineer", "Solutions Architect", "Team Lead", "R&D", "Other"
+    "Network", "System Engineer","Team Lead","Product Manager", "Solutions Architect", "R&D",
+     "Other"  
 }
  
 VALID_SENIORITY = {

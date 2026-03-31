@@ -251,13 +251,11 @@ def get_description(driver, job_id: str) -> tuple[str, object, float]:
 
 # ── keyword scraper ───────────────────────────────────────────────────────
 
-def scrape_keyword(driver, keyword: str, seen_ids: set, remaining: int = 50) -> list[dict]:
+def scrape_keyword(driver, keyword: str, seen_ids: set, remaining: int = 50):
     """
-    Scrape up to *remaining* new job stubs for *keyword* and return them
-    as a list of dicts with raw_description and posted_at already fetched.
-
-    This function is pure scraping: it does NOT call Groq or write to any DB.
-    The caller (main.py) handles extraction and storage.
+    Generator: yields one job dict at a time (with raw_description + posted_at).
+    Each job is yielded immediately after its description is fetched so the
+    caller can extract + insert without waiting for the whole keyword to finish.
     """
     kw_start = time.time()
     print(f"\n── Keyword: '{keyword}' ──────────────────────────────")
@@ -267,7 +265,7 @@ def scrape_keyword(driver, keyword: str, seen_ids: set, remaining: int = 50) -> 
 
     if not wait_for_cards(driver):
         print("  No cards found.")
-        return []
+        return
 
     scroll_to_load_all(driver)
 
@@ -300,12 +298,11 @@ def scrape_keyword(driver, keyword: str, seen_ids: set, remaining: int = 50) -> 
 
     if not all_stubs:
         print("  No new cards.")
-        return []
+        return
 
     all_stubs = all_stubs[:remaining]
     print(f"  Fetching descriptions for {len(all_stubs)} jobs...")
 
-    results   = []
     job_times = []
 
     for stub in all_stubs:
@@ -326,8 +323,8 @@ def scrape_keyword(driver, keyword: str, seen_ids: set, remaining: int = 50) -> 
         stub["raw_description"] = raw_desc
         stub["posted_at"]       = posted_at
         stub["keyword"]         = keyword
-        results.append(stub)
+
+        yield stub  # ← yield immediately so caller can extract + insert now
 
     avg = sum(job_times) / len(job_times) if job_times else 0
-    print(f"  ✓ {fmt(time.time() - kw_start)} | {len(results)} fetched | avg: {fmt(avg)}/job")
-    return results 
+    print(f"  ✓ {fmt(time.time() - kw_start)} | {len(job_times)} fetched | avg: {fmt(avg)}/job")
