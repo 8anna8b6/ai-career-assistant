@@ -26,9 +26,9 @@ CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION")
 
 
 # ───────── Scraper ─────────
-TARGET_JOBS = 200
+TARGET_JOBS = 300
 CHROME_VERSION = 145
-DATE_FILTER = "r2592000" #"r86400" last 24 hours,"r604800"last 7 days,"r2592000" last 30 days ,"r7776000" last 90 days
+DATE_FILTER = "r86400" #"r86400" last 24 hours,"r604800"last 7 days,"r2592000" last 30 days ,"r7776000" last 90 days
 
 KEYWORDS = [
     "software engineer", "software developer", "fullstack developer", "full stack developer",

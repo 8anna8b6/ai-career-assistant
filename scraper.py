@@ -324,7 +324,7 @@ def scrape_keyword(driver, keyword: str, seen_ids: set, remaining: int = 50):
         stub["posted_at"]       = posted_at
         stub["keyword"]         = keyword
 
-        yield stub  # ← yield immediately so caller can extract + insert now
+        yield stub  
 
     avg = sum(job_times) / len(job_times) if job_times else 0
     print(f"  ✓ {fmt(time.time() - kw_start)} | {len(job_times)} fetched | avg: {fmt(avg)}/job")

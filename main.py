@@ -5,7 +5,7 @@ from selenium.common.exceptions import InvalidSessionIdException, WebDriverExcep
 import config
 from utils import fmt
 from extractor import extract_with_groq
-from scraper import build_driver, is_driver_alive, scrape_keyword
+from scraper import build_driver, scrape_keyword
 from db import get_connection, init_db, insert_jobs, count_jobs, fetch_all_ids, fetch_jobs_without_embeddings
 from chroma_store import init_chroma, upsert_jobs, collection_count, get_existing_ids
 
