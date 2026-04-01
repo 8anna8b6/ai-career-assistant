@@ -1,165 +1,9 @@
-"""
-1. Semantic search  (ChromaDB)  — "find jobs similar to X"
-2. SQL analytics    (PostgreSQL) — "count / group / aggregate anything"
-3. Job detail fetch (PostgreSQL) — "get full info on specific job(s)"
-"""
-
 from __future__ import annotations
-import json
-import re
-from typing import Any, Dict, List, Optional
 import psycopg2
 import psycopg2.extras
+from typing import Dict, Any, List, Optional
 from db import get_connection
 from chroma_store import init_chroma, search_jobs as chroma_search
-
-
-_DB_SCHEMA = """
-Table: jobs
-Columns:
-  id                TEXT        PRIMARY KEY
-  title             TEXT        — job title as posted
-  role              TEXT        — normalised role bucket:
-                                  'Software Development','Frontend','Backend','Fullstack',
-                                  'AI / ML','Data Scientist','Data Engineer','Data Analyst',
-                                  'BI','DevOps / Cloud','Mobile','QA / Automation','Security',
-                                  'Embedded / Firmware','Database','Network','System Engineer',
-                                  'Product Manager','Team Lead','R&D','Solutions Architect','Other'
-  seniority         TEXT        — 'Intern','Junior','Mid','Senior','Lead','Staff',
-                                  'Principal','Manager','Director','VP','Not specified'
-  company           TEXT        — company name
-  location          TEXT        — city / region
-  url               TEXT        — original job posting URL
-  description       TEXT        — 4-5 sentence AI-generated role summary
-  skills_must       TEXT[]      — required skills (array)
-  skills_nice       TEXT[]      — nice-to-have skills (array)
-  yearsexperience   INTEGER     — years of experience required (may be NULL)
-  past_experience   TEXT[]      — required background domains (array)
-  keyword           TEXT        — search keyword used to find this job
-  source            TEXT        — always 'linkedin'
-  posted_at         DATE        — when the job was posted
-  scraped_at        TIMESTAMP   — when we scraped it
-
-Useful patterns:
-  — unnest arrays:        SELECT unnest(skills_must) AS skill FROM jobs
-  — array contains:       skills_must @> ARRAY['Python']
-  — array overlap:        skills_must && ARRAY['Python','Go']
-  — case-insensitive:     LOWER(role) = LOWER('backend')
-  — partial text search:  title ILIKE '%engineer%'
-  — recent jobs:          ORDER BY scraped_at DESC / posted_at DESC
-  — skill frequency:      SELECT unnest(skills_must) AS skill, COUNT(*) AS cnt
-                          FROM jobs GROUP BY skill ORDER BY cnt DESC
-  — combine arrays:       SELECT unnest(skills_must || skills_nice) AS skill ...
-"""
-
-TOOL_DEFINITIONS: List[Dict] = [
-    # Semantic search
-    {
-        "name": "semantic_search_jobs",
-        "description": (
-            "Search job postings by meaning using vector similarity. "
-            "Use this when the user describes what they are looking for in natural language "
-            "— e.g. 'jobs that involve building APIs', 'machine learning roles at startups', "
-            "'jobs for someone who knows React and Node'. "
-            "Also use to find jobs similar to a CV description or skill list. "
-            "Returns ranked job listings with titles, companies, skills and descriptions."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": (
-                        "Natural-language description of the job to search for. "
-                        "Be specific — include skills, role type, technologies, etc."
-                    ),
-                },
-                "n_results": {
-                    "type": "integer",
-                    "description": "How many results to return. Default 5, max 20.",
-                    "default": 5,
-                },
-                "filters": {
-                    "type": "object",
-                    "description": (
-                        "Optional metadata filters applied before ranking. Supported keys: "
-                        "'role' (exact string from the role enum), "
-                        "'seniority' (exact string from the seniority enum), "
-                        "'company' (exact company name). "
-                        "Example: {\"role\": \"Backend\", \"seniority\": \"Senior\"}"
-                    ),
-                },
-            },
-            "required": ["query"],
-        },
-    },
-
-    #SQL analytics
-    {
-        "name": "query_jobs_database",
-        "description": (
-            "Run a read-only SQL SELECT query against the jobs PostgreSQL database. "
-            "Use this for ANY question that requires counting, grouping, averaging, ranking, "
-            "filtering by structured fields, or computing statistics.\n\n"
-            "Examples of what this covers:\n"
-            "- 'How many Backend jobs are there?'\n"
-            "- 'What is the average years of experience required for Data Scientists?'\n"
-            "- 'Which are the top 10 most required skills for AI / ML roles?'\n"
-            "- 'How many Junior vs Senior positions exist?'\n"
-            "- 'Which companies post the most jobs?'\n"
-            "- 'What roles are most common in Tel Aviv?'\n"
-            "- 'Show me the last 10 jobs posted'\n"
-            "- 'What percentage of jobs require Python?'\n"
-            "- 'What is the seniority distribution for Backend engineers?'\n"
-            "- 'Which skills appear most in both required and nice-to-have across all jobs?'\n\n"
-            "Write standard PostgreSQL. Only SELECT queries are permitted."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "sql": {
-                    "type": "string",
-                    "description": (
-                        f"A valid PostgreSQL SELECT query against the jobs table.\n\n"
-                        f"Schema reference:\n{_DB_SCHEMA}\n\n"
-                        "Rules:\n"
-                        "- Only SELECT or WITH...SELECT is allowed\n"
-                        "- No INSERT / UPDATE / DELETE / DROP\n"
-                        "- Always add LIMIT (max 200) to avoid huge results\n"
-                        "- Use LOWER() for case-insensitive text comparisons\n"
-                        "- Use unnest() to work with array columns like skills_must"
-                    ),
-                },
-                "description": {
-                    "type": "string",
-                    "description": "One sentence describing what this query computes (for logging).",
-                },
-            },
-            "required": ["sql", "description"],
-        },
-    },
-
-    #Job detail
-    {
-        "name": "get_job_details",
-        "description": (
-            "Fetch the complete record for one or more specific jobs by their IDs. "
-            "Use this after semantic_search_jobs or query_jobs_database returns job IDs "
-            "and the user wants the full description, all skills, or the URL for a specific job."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "job_ids": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of job IDs to fetch. IDs come from other tool results.",
-                },
-            },
-            "required": ["job_ids"],
-        },
-    },
-]
 
 
 def _conn():
@@ -170,55 +14,39 @@ def _collection():
     return init_chroma()
 
 
-# implementation of Semantic search
-def semantic_search_jobs(
-    query: str,
-    n_results: int = 5,
-    filters: Optional[Dict[str, str]] = None,
-) -> Dict[str, Any]:
-    n_results = min(n_results, 20)
 
-    # Build ChromaDB where clause from filters
-    where: Optional[Dict] = None
-    if filters:
-        conditions = [
-            {k: {"$eq": v}}
-            for k, v in filters.items()
-            if v
-        ]
-        if len(conditions) == 1:
-            where = conditions[0]
-        elif len(conditions) > 1:
-            where = {"$and": conditions}
 
+def _run_query(sql: str, params: tuple = (), description: str = ""):
+    """Safely runs SQL queries using tuple parameters to prevent SQL injection."""
+    conn = _conn()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(sql, params)
+            rows = cur.fetchall()
+            cols = [desc[0] for desc in cur.description] if cur.description else []
+    finally:
+        conn.close()
+
+    return {
+        "description": description,
+        "columns": cols,
+        "rows": [dict(r) for r in rows],
+    }
+
+
+
+def semantic_search_jobs(query: str, n_results: int = 5) -> Dict[str, Any]:
     collection = _collection()
-    hits = chroma_search(collection, query, n_results=n_results * 3, where=where)
+    hits = chroma_search(collection, query, n_results=n_results)
 
-    # Deduplicate by job_id (multiple vectors per job)
-    seen: set = set()
-    unique_hits = []
-    for h in hits:
-        jid = h["metadata"].get("job_id", h["id"])
-        if jid not in seen:
-            seen.add(jid)
-            unique_hits.append(h)
-        if len(unique_hits) >= n_results:
-            break
-
-    if not unique_hits:
-        return {"jobs": [], "total": 0, "message": "No matching jobs found."}
-
-    job_ids = [h["metadata"].get("job_id") for h in unique_hits]
-    score_map = {h["metadata"].get("job_id"): round(h["score"], 3) for h in unique_hits}
+    job_ids = [h["metadata"]["job_id"] for h in hits]
 
     conn = _conn()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 """
-                SELECT id, title, role, seniority, company, location, url,
-                       description, skills_must, skills_nice, yearsexperience,
-                       past_experience, posted_at
+                SELECT id, title, company, role, location, url, description
                 FROM jobs WHERE id = ANY(%s)
                 """,
                 (job_ids,),
@@ -227,94 +55,154 @@ def semantic_search_jobs(
     finally:
         conn.close()
 
-    results = []
-    for jid in job_ids:
-        if jid in rows:
-            job = rows[jid]
-            job["relevance_score"] = score_map.get(jid, 0)
-            results.append(job)
+    results = [rows[jid] for jid in job_ids if jid in rows]
 
-    return {"jobs": results, "total": len(results)}
+    return {"jobs": results}
 
-
-#implementaation of SQL analytics
-
-_FORBIDDEN = re.compile(
-    r"\b(insert|update|delete|drop|truncate|alter|create|replace|grant|revoke|copy|pg_)\b",
-    re.IGNORECASE,
-)
-
-
-def query_jobs_database(sql: str, description: str = "") -> Dict[str, Any]:
-    sql = sql.strip().rstrip(";")
-
-    # only allow select for sefty
-    if _FORBIDDEN.search(sql):
-        return {"error": "Only SELECT queries are permitted.", "sql": sql}
-    if not re.match(r"^\s*(with\s+|select\s)", sql, re.IGNORECASE):
-        return {"error": "Query must start with SELECT or WITH.", "sql": sql}
-
-    conn = _conn()
-    try:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(sql)
-            rows = cur.fetchall()
-            truncated = len(rows) > 200
-            rows = rows[:200]
-            columns = [desc[0] for desc in cur.description] if cur.description else []
-    except Exception as e:
-        conn.rollback()
-        return {"error": str(e), "sql": sql}
-    finally:
-        conn.close()
-
-    return {
-        "columns": columns,
-        "rows": [dict(r) for r in rows],
-        "row_count": len(rows),
-        "truncated": truncated,
-        "description": description,
-    }
-
-
-#implementaation of Job detail fetch
 
 def get_job_details(job_ids: List[str]) -> Dict[str, Any]:
-    if not job_ids:
-        return {"jobs": [], "total": 0}
-
-    conn = _conn()
-    try:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT id, title, role, seniority, company, location, url,
-                       description, skills_must, skills_nice, yearsexperience,
-                       past_experience, posted_at, scraped_at
-                FROM jobs WHERE id = ANY(%s)
-                """,
-                (job_ids,),
-            )
-            rows = [dict(r) for r in cur.fetchall()]
-    finally:
-        conn.close()
-
-    return {"jobs": rows, "total": len(rows)}
+    return _run_query(
+        "SELECT * FROM jobs WHERE id = ANY(%s)",
+        (job_ids,),
+        "Fetch full job details",
+    )
 
 
+def search_jobs_by_criteria(
+    role: Optional[str] = None,
+    location: Optional[str] = None,
+    company: Optional[str] = None,
+    max_experience: Optional[int] = None,
+    limit: int = 10,
+):
+   
+    sql = "SELECT id, title, company, role, location, url FROM jobs"
+    params = []
 
+    if role:
+        sql += " AND LOWER(role) LIKE LOWER(%s)"
+        params.append(f"%{role}%")
+    if location:
+        sql += " AND LOWER(location) LIKE LOWER(%s)"
+        params.append(f"%{location}%")
+    if company:
+        sql += " AND LOWER(company) LIKE LOWER(%s)"
+        params.append(f"%{company}%")
+    if max_experience is not None:
+        sql += " AND yearsexperience <= %s"
+        params.append(max_experience)
+
+    sql += " ORDER BY scraped_at DESC LIMIT %s"
+    params.append(limit)
+
+    return _run_query(sql, tuple(params), "Filtered job search")
+
+
+
+def get_job_aggregate(
+    operation: str, column: str, role_filter: Optional[str] = None
+):
+    """Calculates COUNT, AVG, MIN, or MAX on specific numeric/date columns."""
+    ALLOWED_OPS = {"COUNT", "AVG", "MIN", "MAX"}
+    ALLOWED_COLUMNS = {"yearsexperience", "posted_at", "scraped_at", "id"}
+
+    op_upper = operation.upper()
+    col_lower = column.lower()
+
+    if op_upper not in ALLOWED_OPS:
+        return {
+            "error": f"Operation '{operation}' not allowed. Use COUNT, AVG, MIN, or MAX."
+        }
+    if col_lower not in ALLOWED_COLUMNS:
+        return {"error": f"Column '{column}' not allowed for calculations."}
+
+    sql = f"SELECT {op_upper}({col_lower}) AS result FROM jobs WHERE 1=1"
+    params = []
+
+    if role_filter:
+        words = role_filter.split()
+        or_conditions = []
+        
+        for word in words:
+            or_conditions.append("LOWER(role) LIKE LOWER(%s)")
+            params.append(f"%{word}%")
+            
+        
+        if or_conditions:
+            sql += f" AND ({' OR '.join(or_conditions)})"
+
+    return _run_query(sql, tuple(params), f"Generic {op_upper} of {col_lower}")
+
+
+def get_column_distribution(column: str, limit: int = 15):
+    """Groups by a column and counts frequencies."""
+    ALLOWED_COLUMNS = {
+        "role",
+        "seniority",
+        "location",
+        "company",
+        "yearsexperience",
+    }
+    col_lower = column.lower()
+
+    if col_lower not in ALLOWED_COLUMNS:
+        return {"error": f"Cannot group by column '{column}'."}
+
+    sql = f"""
+        SELECT {col_lower} AS item, COUNT(*) AS count 
+        FROM jobs 
+        WHERE {col_lower} IS NOT NULL 
+        GROUP BY {col_lower} 
+        ORDER BY count DESC 
+        LIMIT %s
+    """
+
+    return _run_query(sql, (limit,), f"Distribution of {col_lower}")
+
+
+def top_skills(role: str, limit: int = 10):
+    return _run_query(
+        """
+        SELECT unnest(skills_must) AS skill, COUNT(*) AS cnt
+        FROM jobs
+        WHERE LOWER(role) = LOWER(%s)
+        GROUP BY skill
+        ORDER BY cnt DESC
+        LIMIT %s
+        """,
+        (role, limit),
+        f"Top skills for {role}",
+    )
+
+
+def top_skills_all(limit: int = 15):
+    return _run_query(
+        """
+        SELECT unnest(skills_must) AS skill, COUNT(*) AS cnt
+        FROM jobs
+        GROUP BY skill
+        ORDER BY cnt DESC
+        LIMIT %s
+        """,
+        (limit,),
+        "Top skills overall",
+    )
+
+
+#mapping
 TOOL_IMPLEMENTATIONS = {
     "semantic_search_jobs": semantic_search_jobs,
-    "query_jobs_database":  query_jobs_database,
-    "get_job_details":      get_job_details,
+    "get_job_details": get_job_details,
+    "search_jobs_by_criteria": search_jobs_by_criteria,
+    "get_job_aggregate": get_job_aggregate,
+    "get_column_distribution": get_column_distribution,
+    "top_skills": top_skills,
+    "top_skills_all": top_skills_all,
 }
 
 
-def run_tool(name: str, inputs: Dict[str, Any]) -> Any:
+def run_tool(name: str, inputs: Dict[str, Any]):
     fn = TOOL_IMPLEMENTATIONS.get(name)
     if not fn:
-        return {"error": f"Unknown tool: '{name}'"}
-    try:
-        return fn(**inputs)
-    except Exception as e:
-        return {"error": str(e), "tool": name}
+        return {"error": f"Unknown tool: {name}"}
+    return fn(**inputs)
