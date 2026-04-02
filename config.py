@@ -26,9 +26,9 @@ CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION")
 
 
 # ───────── Scraper ─────────
-TARGET_JOBS = 300
+TARGET_JOBS = 600
 CHROME_VERSION = 145
-DATE_FILTER = "r86400" #"r86400" last 24 hours,"r604800"last 7 days,"r2592000" last 30 days ,"r7776000" last 90 days
+DATE_FILTER = "r604800" #"r86400" last 24 hours,"r604800"last 7 days,"r2592000" last 30 days ,"r7776000" last 90 days
 
 KEYWORDS = [
     "software engineer", "software developer", "fullstack developer", "full stack developer",
@@ -39,7 +39,7 @@ KEYWORDS = [
     "react", "angular", "html", "css",
     "data analyst", "data engineer", "data scientist", "ai", "machine learning",
     "deep learning", "nlp", "computer vision", "big data", "it", "bi",
-    "cloud", "aws", "azure", "docker", "kubernetes", "devops", "ci cd",
+    "cloud", "aws", "azure","docker", "kubernetes", "devops", "ci cd",
     "database", "sql", "nosql", "mongodb", "postgres", "mysql",
     "security", "cyber", "infosec", "penetration", "appsec",
     "android", "ios", "mobile", "flutter", "react native",

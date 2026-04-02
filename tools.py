@@ -75,22 +75,30 @@ def search_jobs_by_criteria(
     max_experience: Optional[int] = None,
     limit: int = 10,
 ):
-   
     sql = "SELECT id, title, company, role, location, url FROM jobs"
+    
+    conditions = []
     params = []
 
     if role:
-        sql += " AND LOWER(role) LIKE LOWER(%s)"
+        conditions.append("LOWER(role) LIKE LOWER(%s)")
         params.append(f"%{role}%")
+
     if location:
-        sql += " AND LOWER(location) LIKE LOWER(%s)"
+        conditions.append("LOWER(location) LIKE LOWER(%s)")
         params.append(f"%{location}%")
+
     if company:
-        sql += " AND LOWER(company) LIKE LOWER(%s)"
+        conditions.append("LOWER(company) LIKE LOWER(%s)")
         params.append(f"%{company}%")
+
     if max_experience is not None:
-        sql += " AND yearsexperience <= %s"
+        conditions.append("yearsexperience <= %s")
         params.append(max_experience)
+
+   
+    if conditions:
+        sql += " WHERE " + " AND ".join(conditions)
 
     sql += " ORDER BY scraped_at DESC LIMIT %s"
     params.append(limit)
