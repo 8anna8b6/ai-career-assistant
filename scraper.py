@@ -16,6 +16,7 @@ from utils import parse_posted_date, fmt
 
 def build_driver() -> uc.Chrome:
     options = uc.ChromeOptions()
+    options.add_argument("--headless=new") 
     options.add_argument("--start-maximized")
     options.add_argument("--lang=he-IL")
     options.add_argument("--accept-lang=he-IL,he;q=0.9,en-US;q=0.8")

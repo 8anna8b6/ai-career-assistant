@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import List, Union
-from sentence_transformers import SentenceTransformer
-from config import LOCAL_EMBEDDING_MODEL
+import chromadb
+from chromadb.utils import embedding_functions
 
 _model = None  # loaded once
 
@@ -9,8 +9,9 @@ _model = None  # loaded once
 def _init_model():
     global _model
     if _model is None:
-        _model = SentenceTransformer(LOCAL_EMBEDDING_MODEL)
-        print(f"[Embeddings] Using local model: {LOCAL_EMBEDDING_MODEL}")
+        # Use ChromaDB's default embedding (lightweight, no torch needed)
+        _model = embedding_functions.DefaultEmbeddingFunction()
+        print(f"[Embeddings] Using ChromaDB default embedding function")
 
 
 def get_embeddings(texts: Union[str, List[str]]) -> List[List[float]]:
@@ -38,14 +39,10 @@ def get_embeddings(texts: Union[str, List[str]]) -> List[List[float]]:
         t = t.strip()
         cleaned.append(t if t else " ")
 
-    vectors = _model.encode(
-        cleaned,
-        show_progress_bar=False,
-        batch_size=32,
-        normalize_embeddings=True  
-    )
-
-    return [v.tolist() for v in vectors]
+    # Get embeddings using ChromaDB's default function
+    vectors = _model(cleaned)
+    
+    return vectors
 
 
 def embedding_dim() -> int:

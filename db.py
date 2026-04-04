@@ -69,11 +69,19 @@ def insert_jobs(conn, jobs: List[dict]) -> int:
     conn.commit()
     return len(rows)
 
-
-def count_jobs(conn) -> int:#for debuf delete later
-   
+def count_jobs(conn) -> int:
     with conn.cursor() as cur:
-        cur.execute("SELECT COUNT(*) FROM jobs;")
+        cur.execute("SELECT COUNT(*) FROM jobs")
+        return cur.fetchone()[0]
+
+
+def count_jobs_today(conn) -> int:
+    from datetime import date
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) FROM jobs WHERE scraped_at::date = %s",
+            (date.today(),)
+        )
         return cur.fetchone()[0]
 
 
@@ -102,3 +110,5 @@ def fetch_jobs_without_embeddings(conn, chroma_ids: set) -> List[dict]:#used for
         if job["id"] not in chroma_ids:
             jobs.append(job)
     return jobs
+
+    

@@ -1,0 +1,9 @@
+logs/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.git
+.gitignore
+postgres_data/
